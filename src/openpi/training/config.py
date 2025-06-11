@@ -915,12 +915,12 @@ _CONFIGS = [
                 # assets_dir="s3://openpi-assets/checkpoints/pi0_base/assets",
                 # asset_id="ur10e",
             ),
-            base_config=DataConfig(),
+            base_config=DataConfig(prompt_from_task=True),
         ),
         weight_loader=weight_loaders.CheckpointWeightLoader(
             "s3://openpi-assets/checkpoints/pi0_base/params"
         ),
-        num_train_steps=20_000,
+        num_train_steps=1_000,
     ),
 ]
 
