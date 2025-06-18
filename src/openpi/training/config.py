@@ -911,16 +911,33 @@ _CONFIGS = [
         model=pi0.Pi0Config(),
         data=LeRobotUR10eDataConfig(
             repo_id="Perseus101/ur10e_manual_operation_2",
-            assets=AssetsConfig(
-                # assets_dir="s3://openpi-assets/checkpoints/pi0_base/assets",
-                # asset_id="ur10e",
-            ),
+            assets=AssetsConfig(),
             base_config=DataConfig(prompt_from_task=True),
         ),
         weight_loader=weight_loaders.CheckpointWeightLoader(
             "s3://openpi-assets/checkpoints/pi0_base/params"
         ),
         num_train_steps=1_000,
+    ),
+    TrainConfig(
+        name="pi0_ur10e_finetune_lora",
+        model=pi0.Pi0Config(
+            paligemma_variant="gemma_2b_lora", action_expert_variant="gemma_300m_lora"
+        ),
+        data=LeRobotUR10eDataConfig(
+            repo_id="Perseus101/ur10e_manual_operation_2",
+            assets=AssetsConfig(),
+            base_config=DataConfig(prompt_from_task=True),
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "s3://openpi-assets/checkpoints/pi0_base/params"
+        ),
+        num_train_steps=1,
+        freeze_filter=pi0.Pi0Config(
+            paligemma_variant="gemma_2b_lora", action_expert_variant="gemma_300m_lora"
+        ).get_freeze_filter(),
+        # Turn off EMA for LoRA finetuning.
+        ema_decay=None,
     ),
 ]
 
