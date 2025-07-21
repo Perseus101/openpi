@@ -45,7 +45,7 @@ class AssetsConfig:
 
     ```
     AssetsConfig(
-        assets_dir="s3://openpi-assets/checkpoints/pi0_base/assets",
+        assets_dir="gs://openpi-assets/checkpoints/pi0_base/assets",
         asset_id="trossen",
     )
     ```
@@ -478,7 +478,9 @@ class RLDSDroidDataConfig(DataConfigFactory):
     action_space: droid_rlds_dataset.DroidActionSpace | None = None
 
     @override
-    def create(self, assets_dirs: pathlib.Path, model_config: _model.BaseModelConfig) -> DataConfig:
+    def create(
+        self, assets_dirs: pathlib.Path, model_config: _model.BaseModelConfig
+    ) -> DataConfig:
         repack_transform = _transforms.Group(
             inputs=[
                 _transforms.RepackTransform(
@@ -495,7 +497,12 @@ class RLDSDroidDataConfig(DataConfigFactory):
         )
 
         data_transforms = _transforms.Group(
-            inputs=[droid_policy.DroidInputs(action_dim=model_config.action_dim, model_type=model_config.model_type)],
+            inputs=[
+                droid_policy.DroidInputs(
+                    action_dim=model_config.action_dim,
+                    model_type=model_config.model_type,
+                )
+            ],
             outputs=[droid_policy.DroidOutputs()],
         )
 
@@ -509,7 +516,9 @@ class RLDSDroidDataConfig(DataConfigFactory):
 
         model_transforms = ModelTransformFactory()(model_config)
 
-        assert self.rlds_data_dir is not None, "Need to set rlds data dir for RLDS data loader."
+        assert (
+            self.rlds_data_dir is not None
+        ), "Need to set rlds data dir for RLDS data loader."
 
         return dataclasses.replace(
             self.create_base_config(assets_dirs),
@@ -631,6 +640,7 @@ _CONFIGS = [
         data=LeRobotAlohaDataConfig(
             assets=AssetsConfig(asset_id="trossen"),
         ),
+        policy_metadata={"reset_pose": [0, -1.5, 1.5, 0, 0, 0]},
     ),
     TrainConfig(
         name="pi0_aloha_towel",
@@ -639,6 +649,7 @@ _CONFIGS = [
             assets=AssetsConfig(asset_id="trossen"),
             default_prompt="fold the towel",
         ),
+        policy_metadata={"reset_pose": [0, -1.5, 1.5, 0, 0, 0]},
     ),
     TrainConfig(
         name="pi0_aloha_tupperware",
@@ -647,6 +658,7 @@ _CONFIGS = [
             assets=AssetsConfig(asset_id="trossen"),
             default_prompt="open the tupperware and put the food on the plate",
         ),
+        policy_metadata={"reset_pose": [0, -1.5, 1.5, 0, 0, 0]},
     ),
     #
     # Inference DROID configs.
@@ -713,7 +725,7 @@ _CONFIGS = [
         # Here you define which pre-trained checkpoint you want to load to initialize the model.
         # This should match the model config you chose above -- i.e. in this case we use the pi0 base model.
         weight_loader=weight_loaders.CheckpointWeightLoader(
-            "s3://openpi-assets/checkpoints/pi0_base/params"
+            "gs://openpi-assets/checkpoints/pi0_base/params"
         ),
         # Below you can define other hyperparameters like the learning rate, number of training steps, etc.
         # Check the base TrainConfig class for a full list of available hyperparameters.
@@ -730,7 +742,7 @@ _CONFIGS = [
             base_config=DataConfig(prompt_from_task=True),
         ),
         weight_loader=weight_loaders.CheckpointWeightLoader(
-            "s3://openpi-assets/checkpoints/pi0_base/params"
+            "gs://openpi-assets/checkpoints/pi0_base/params"
         ),
         num_train_steps=30_000,
         # The freeze filter defines which parameters should be frozen during training.
@@ -764,7 +776,7 @@ _CONFIGS = [
         ),
         # Note that we load the pi0-FAST base model checkpoint here.
         weight_loader=weight_loaders.CheckpointWeightLoader(
-            "s3://openpi-assets/checkpoints/pi0_fast_base/params"
+            "gs://openpi-assets/checkpoints/pi0_fast_base/params"
         ),
         num_train_steps=30_000,
     ),
@@ -783,7 +795,7 @@ _CONFIGS = [
             base_config=DataConfig(prompt_from_task=True),
         ),
         weight_loader=weight_loaders.CheckpointWeightLoader(
-            "s3://openpi-assets/checkpoints/pi0_fast_base/params"
+            "gs://openpi-assets/checkpoints/pi0_fast_base/params"
         ),
         num_train_steps=30_000,
         # Again, make sure to match the model config above when extracting the freeze filter
@@ -808,7 +820,7 @@ _CONFIGS = [
         data=LeRobotAlohaDataConfig(
             repo_id="physical-intelligence/aloha_pen_uncap_diverse",
             assets=AssetsConfig(
-                assets_dir="s3://openpi-assets/checkpoints/pi0_base/assets",
+                assets_dir="gs://openpi-assets/checkpoints/pi0_base/assets",
                 asset_id="trossen",
             ),
             default_prompt="uncap the pen",
@@ -829,7 +841,7 @@ _CONFIGS = [
             ),
         ),
         weight_loader=weight_loaders.CheckpointWeightLoader(
-            "s3://openpi-assets/checkpoints/pi0_base/params"
+            "gs://openpi-assets/checkpoints/pi0_base/params"
         ),
         num_train_steps=20_000,
     ),
@@ -849,7 +861,9 @@ _CONFIGS = [
             rlds_data_dir="<path_to_droid_rlds_dataset>",
             action_space=droid_rlds_dataset.DroidActionSpace.JOINT_POSITION,
         ),
-        weight_loader=weight_loaders.CheckpointWeightLoader("s3://openpi-assets/checkpoints/pi0_fast_base/params"),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "gs://openpi-assets/checkpoints/pi0_fast_base/params"
+        ),
         lr_schedule=_optimizer.CosineDecaySchedule(
             warmup_steps=1_000,
             peak_lr=5e-5,
@@ -875,7 +889,7 @@ _CONFIGS = [
             use_delta_joint_actions=False,
         ),
         weight_loader=weight_loaders.CheckpointWeightLoader(
-            "s3://openpi-assets/checkpoints/pi0_base/params"
+            "gs://openpi-assets/checkpoints/pi0_base/params"
         ),
         num_train_steps=20_000,
     ),
