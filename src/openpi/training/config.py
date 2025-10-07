@@ -311,6 +311,95 @@ class LeRobotAlohaDataConfig(DataConfigFactory):
 
 
 @dataclasses.dataclass(frozen=True)
+class UR5eInputs(_transforms.DataTransformFn):
+    action_dim: int
+
+    def __call__(self, data: dict) -> dict:
+        assert (
+            self.action_dim == 7
+        ), "Action dimensions must be 7 (6 joints + 1 gripper)"
+
+        state = _transforms.pad_to_dim(data["state"], self.action_dim)
+        base_image = libero_policy._parse_image(data["images"]["image"])
+        wrist_image = libero_policy._parse_image(data["images"]["wrist_image"])
+        inputs = {
+            "state": state,
+            "image": {
+                "base_0_rgb": base_image,
+                "left_wrist_0_rgb": wrist_image,
+                "right_wrist_0_rgb": np.zeros_like(base_image),
+            },
+            "image_mask": {
+                "base_0_rgb": np.True_,
+                "left_wrist_0_rgb": np.True_,
+                "right_wrist_0_rgb": np.False_,
+            },
+        }
+        inputs["actions"] = _transforms.pad_to_dim(data["actions"], self.action_dim)
+        inputs["prompt"] = data["task"]
+        return inputs
+
+
+@dataclasses.dataclass(frozen=True)
+class UR5eOutputs(_transforms.DataTransformFn):
+    def __call__(self, data: dict) -> dict:
+        # Trim to 7 action dimensions: 6 joints + 1 gripper
+        return {"actions": np.asarray(data["actions"][:, :7])}
+
+
+@dataclasses.dataclass(frozen=True)
+class LeRobotUR5eDataConfig(DataConfigFactory):
+    use_delta_joint_actions: bool = True
+    default_prompt: str | None = None
+
+    repack_transforms: tyro.conf.Suppress[_transforms.Group] = dataclasses.field(
+        default=_transforms.Group(
+            inputs=[
+                _transforms.RepackTransform(
+                    {
+                        "images": {
+                            "image": "image",
+                            "wrist_image": "wrist_image",
+                        },
+                        "state": "state",
+                        "actions": "actions",
+                        "task": "task",
+                    }
+                )
+            ]
+        )
+    )
+    action_sequence_keys: Sequence[str] = ("actions",)
+
+    @override
+    def create(
+        self, assets_dirs: pathlib.Path, model_config: _model.BaseModelConfig
+    ) -> DataConfig:
+        data_transforms = _transforms.Group(
+            inputs=[UR5eInputs(action_dim=model_config.action_dim)],
+            outputs=[UR5eOutputs()],
+        )
+        if self.use_delta_joint_actions:
+            delta_action_mask = _transforms.make_bool_mask(6, -1)
+            data_transforms = data_transforms.push(
+                inputs=[_transforms.DeltaActions(delta_action_mask)],
+                outputs=[_transforms.AbsoluteActions(delta_action_mask)],
+            )
+
+        model_transforms = ModelTransformFactory(default_prompt=self.default_prompt)(
+            model_config
+        )
+
+        return dataclasses.replace(
+            self.create_base_config(assets_dirs, model_config),
+            repack_transforms=self.repack_transforms,
+            data_transforms=data_transforms,
+            model_transforms=model_transforms,
+            action_sequence_keys=self.action_sequence_keys,
+        )
+
+
+@dataclasses.dataclass(frozen=True)
 class UR10eInputs(_transforms.DataTransformFn):
     action_dim: int
     model_type: _model.ModelType = _model.ModelType.PI0
@@ -1115,6 +1204,23 @@ _CONFIGS = [
             "gs://openpi-assets/checkpoints/pi0_base/params"
         ),
         num_train_steps=20_000,
+    ),
+    #
+    # RobotCodeLab configs.
+    #
+    TrainConfig(
+        name="pi05_ur5e_finetune",
+        model=pi0_config.Pi0Config(action_horizon=15, action_dim=7, pi05=True),
+        data=LeRobotUR5eDataConfig(
+            repo_id="Perseus101/ur5e_openx_retargeted",
+            assets=AssetsConfig(
+                assets_dir="gs://openpi-assets/checkpoints/pi05_base/assets",
+                asset_id="ur5e",
+            ),
+            base_config=DataConfig(prompt_from_task=True),
+        ),
+        num_train_steps=2_000,
+        save_interval=100,
     ),
     #
     # Debugging configs.
