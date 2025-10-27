@@ -694,11 +694,14 @@ class LeRobotDROIDDataConfig(DataConfigFactory):
             model_transforms=model_transforms,
         )
 
+
 @dataclasses.dataclass(frozen=True)
 class LeRobotUR5eSimDataConfig(DataConfigFactory):
 
     @override
-    def create(self, assets_dirs: pathlib.Path, model_config: _model.BaseModelConfig) -> DataConfig:
+    def create(
+        self, assets_dirs: pathlib.Path, model_config: _model.BaseModelConfig
+    ) -> DataConfig:
         # Remap keys produced by parse_ur5e_bags_to_lerobot.py into the flattened structure consumed by the
         # remaining pipeline. We also rename the action key so chunked sequences are exposed as \"actions\".
         repack_transform = _transforms.Group(
@@ -947,13 +950,18 @@ _CONFIGS = [
             ),
         ),
         # Start from the DROID fine-tuned checkpoint instead of the base.
-        weight_loader=weight_loaders.CheckpointWeightLoader("s3://openpi-assets/checkpoints/pi0_fast_droid/params"),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "s3://openpi-assets/checkpoints/pi0_fast_droid/params"
+        ),
         # LoRA uses much less memory; batch size 4 is a safe default for 24GB.
         batch_size=4,
         num_train_steps=1000,
         # Freeze non-LoRA params as defined by the model's default LoRA freeze filter.
         freeze_filter=pi0_fast.Pi0FASTConfig(
-            action_dim=8, action_horizon=10, max_token_len=180, paligemma_variant="gemma_2b_lora"
+            action_dim=8,
+            action_horizon=10,
+            max_token_len=180,
+            paligemma_variant="gemma_2b_lora",
         ).get_freeze_filter(),
         # Turn off EMA for LoRA finetuning.
         ema_decay=None,
@@ -976,12 +984,18 @@ _CONFIGS = [
                 asset_id="ur5e_2f85_sim_marker_in_bowl",
             ),
             base_config=DataConfig(
-                repo_id=str(pathlib.Path.home() / "datasets" / "ur5e_2f85_sim_pi0_fast_lora_local"),
+                repo_id=str(
+                    pathlib.Path.home()
+                    / "datasets"
+                    / "ur5e_2f85_sim_pi0_fast_lora_local"
+                ),
                 local_files_only=True,
                 action_sequence_keys=("action",),
             ),
         ),
-        weight_loader=weight_loaders.CheckpointWeightLoader("gs://openpi-assets/checkpoints/pi0_fast_base/params"),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "gs://openpi-assets/checkpoints/pi0_fast_base/params"
+        ),
         # Learning rate and optimizer settings for LoRA finetuning.
         lr_schedule=_optimizer.CosineDecaySchedule(
             warmup_steps=1_000,
@@ -990,9 +1004,9 @@ _CONFIGS = [
             decay_lr=1.5e-5,
         ),
         optimizer=_optimizer.AdamW(
-            b1=0.9, # momentum
-            b2=0.99, # rmsprop
-            clip_gradient_norm=0.5, # gradient clipping
+            b1=0.9,  # momentum
+            b2=0.99,  # rmsprop
+            clip_gradient_norm=0.5,  # gradient clipping
         ),
         # Freeze non-LoRA params as defined by the model's default LoRA freeze filter.
         freeze_filter=pi0_fast.Pi0FASTConfig(
@@ -1016,7 +1030,9 @@ _CONFIGS = [
     # (works well for single third-person + wrist camera setups) while returning 8-dim Droid actions at inference.
     TrainConfig(
         name="pi0_fast_droid_local",
-        model=pi0_fast.Pi0FASTConfig(action_dim=8, action_horizon=10, max_token_len=180),
+        model=pi0_fast.Pi0FASTConfig(
+            action_dim=8, action_horizon=10, max_token_len=180
+        ),
         data=SimpleDataConfig(
             repo_id="/home/levi/.cache/huggingface/lerobot/droid01",
             # Reuse DROID norm stats from the DROID FAST checkpoint assets.
@@ -1055,7 +1071,9 @@ _CONFIGS = [
             ),
         ),
         # Initialize from the pi0-FAST DROID fine-tuned checkpoint to continue fine-tuning.
-        weight_loader=weight_loaders.CheckpointWeightLoader("s3://openpi-assets/checkpoints/pi0_fast_droid/params"),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "s3://openpi-assets/checkpoints/pi0_fast_droid/params"
+        ),
         num_train_steps=20_000,
     ),
     TrainConfig(
@@ -1426,6 +1444,71 @@ _CONFIGS = [
         ),
         num_train_steps=2_000,
         save_interval=100,
+    ),
+    TrainConfig(
+        name="ur5e_2f85_sim_pi0_fast",
+        model=pi0_fast.Pi0FASTConfig(
+            action_dim=7,
+            action_horizon=32,
+            max_token_len=180,
+            paligemma_variant="gemma_2b_lora",
+        ),
+        data=LeRobotUR5eSimDataConfig(
+            repo_id="Perseus101/ur5e_2f85_sim_marker_in_bowl",
+            assets=AssetsConfig(
+                assets_dir=str(pathlib.Path.home() / "openpi_assets"),
+                asset_id="ur5e_2f85_sim_marker_in_bowl",
+            ),
+            base_config=DataConfig(
+                local_files_only=True,
+                action_sequence_keys=("action",),
+            ),
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "gs://openpi-assets/checkpoints/pi0_fast_base/params"
+        ),
+        batch_size=32,
+        num_train_steps=5_000,
+    ),
+    TrainConfig(
+        name="ur5e_2f85_sim_pi0",
+        model=pi0_config.Pi0Config(action_dim=7, action_horizon=32),
+        data=LeRobotUR5eSimDataConfig(
+            repo_id="Perseus101/ur5e_2f85_sim_marker_in_bowl",
+            assets=AssetsConfig(
+                assets_dir=str(pathlib.Path.home() / "openpi_assets"),
+                asset_id="ur5e_2f85_sim_marker_in_bowl",
+            ),
+            base_config=DataConfig(
+                local_files_only=True,
+                action_sequence_keys=("action",),
+            ),
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "gs://openpi-assets/checkpoints/pi0_fast_base/params"
+        ),
+        batch_size=32,
+        num_train_steps=5_000,
+    ),
+    TrainConfig(
+        name="ur5e_2f85_sim_pi05",
+        model=pi0_config.Pi0Config(action_dim=7, action_horizon=32, pi05=True),
+        data=LeRobotUR5eSimDataConfig(
+            repo_id="Perseus101/ur5e_2f85_sim_marker_in_bowl",
+            assets=AssetsConfig(
+                assets_dir=str(pathlib.Path.home() / "openpi_assets"),
+                asset_id="ur5e_2f85_sim_marker_in_bowl",
+            ),
+            base_config=DataConfig(
+                local_files_only=True,
+                action_sequence_keys=("action",),
+            ),
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "gs://openpi-assets/checkpoints/pi0_fast_base/params"
+        ),
+        batch_size=32,
+        num_train_steps=5_000,
     ),
     #
     # Debugging configs.
