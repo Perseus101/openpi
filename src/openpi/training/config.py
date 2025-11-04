@@ -1485,7 +1485,7 @@ _CONFIGS = [
             ),
         ),
         weight_loader=weight_loaders.CheckpointWeightLoader(
-            "gs://openpi-assets/checkpoints/pi0_fast_base/params"
+            "gs://openpi-assets/checkpoints/pi0_base/params"
         ),
         batch_size=32,
         num_train_steps=5_000,
@@ -1505,7 +1505,7 @@ _CONFIGS = [
             ),
         ),
         weight_loader=weight_loaders.CheckpointWeightLoader(
-            "gs://openpi-assets/checkpoints/pi0_fast_base/params"
+            "gs://openpi-assets/checkpoints/pi05_base/assets"
         ),
         batch_size=32,
         num_train_steps=5_000,
